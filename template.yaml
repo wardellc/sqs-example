@@ -1,0 +1,70 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  sqs-example
+  
+  Sample SAM Template for sqs-example
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 5
+
+Resources:
+  ProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Role: !GetAtt SQSRole.Arn
+      CodeUri: processor/
+      Handler: index.handler
+      Runtime: go1.x
+      Events:
+        WorkQueueEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt WorkQueue.Arn
+            BatchSize: 10
+  ImportFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Role: !GetAtt SQSRole.Arn
+      CodeUri: import/
+      Handler: index.handler
+      Runtime: go1.x
+      Environment:
+        Variables:
+          QUEUE_NAME: !GetAtt WorkQueue.QueueName
+  WorkQueue:
+    Type: AWS::SQS::Queue
+  SQSRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - "lambda.amazonaws.com"
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: sqsAllowAll
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: '*'
+                Resource: 'arn:aws:sqs:*'
+        - PolicyName: AllowCloudWatch
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                  - "logs:DescribeLogStreams"
+                Resource: "arn:aws:logs:*:*:*"
