@@ -14,10 +14,15 @@ Resources:
   ProcessorFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Role: !GetAtt SQSRole.Arn
+      Role: !GetAtt SQSExampleRole.Arn
       CodeUri: processor/
       Handler: index.handler
       Runtime: go1.x
+      ReservedConcurrentExecutions: 1
+      MemorySize: 128
+      Environment:
+        Variables:
+          TRACKING_TABLE_NAME: !Ref TrackingDynamoDBTable
       Events:
         WorkQueueEvent:
           Type: SQS
@@ -27,16 +32,28 @@ Resources:
   ImportFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Role: !GetAtt SQSRole.Arn
+      Role: !GetAtt SQSExampleRole.Arn
       CodeUri: import/
       Handler: index.handler
       Runtime: go1.x
+      MemorySize: 128
       Environment:
         Variables:
           QUEUE_NAME: !GetAtt WorkQueue.QueueName
+          TRACKING_TABLE_NAME: !Ref TrackingDynamoDBTable
   WorkQueue:
     Type: AWS::SQS::Queue
-  SQSRole:
+  TrackingDynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties: 
+      AttributeDefinitions: 
+        - AttributeName: id
+          AttributeType: S
+      KeySchema: 
+        - AttributeName: id
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+  SQSExampleRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -57,6 +74,13 @@ Resources:
               - Effect: Allow
                 Action: '*'
                 Resource: 'arn:aws:sqs:*'
+        - PolicyName: dynamodbAllowAll
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: '*'
+                Resource: 'arn:aws:dynamodb:*'
         - PolicyName: AllowCloudWatch
           PolicyDocument:
             Version: 2012-10-17
